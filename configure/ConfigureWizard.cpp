@@ -206,5 +206,10 @@ void ConfigureWizard::parseCommandLineInfo(const CommandLineInfo &info)
   _targetPage.zeroConfigurationSupport(info.zeroConfigurationSupport());
 }
 
+wstring ConfigureWizard::cmakeMinVersion() const
+{
+  return L"3.18";
+}
+
 BEGIN_MESSAGE_MAP(ConfigureWizard,CPropertySheet)
 END_MESSAGE_MAP()

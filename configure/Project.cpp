@@ -20,6 +20,8 @@
 #include "stdafx.h"
 #include "Project.h"
 
+#include <algorithm>
+
 Compiler Project::compiler(VisualStudioVersion visualStudioVersion) const
 {
   return(_magickProject && visualStudioVersion >= VisualStudioVersion::VS2022 ? Compiler::CPP : Compiler::Default);
@@ -329,6 +331,9 @@ void Project::addLines(wifstream &config,vector<wstring> &container)
     if (line.empty())
       return;
 
+    // replace all \\ to / in line
+    std::replace(line.begin(), line.end(), L'\\', L'/');
+
     container.push_back(line);
   }
 }
@@ -426,12 +431,12 @@ void Project::loadModules(const ConfigureWizard &wizard)
   foreach (wstring,dir,_directories)
   {
     const wstring
-      fileDir(L"..\\..\\" + *dir);
+      fileDir(L"../../" + *dir);
 
     if (!directoryExists(fileDir))
       throwException(L"Invalid folder specified: " + fileDir);
 
-    fileHandle=FindFirstFile((fileDir + L"\\*.*").c_str(),&data);
+    fileHandle=FindFirstFile((fileDir + L"/*.*").c_str(),&data);
     do
     {
       if (fileHandle == INVALID_HANDLE_VALUE)

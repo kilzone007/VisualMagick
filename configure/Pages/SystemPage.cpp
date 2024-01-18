@@ -26,9 +26,9 @@ IMPLEMENT_DYNCREATE(SystemPage, CPropertyPage)
 
 SystemPage::SystemPage() : CPropertyPage(IDD_SYSTEM_PAGE)
 {
-  _binDirectory="..\\..\\bin\\";
-  _fuzzBinDirectory="..\\..\\fuzz\\bin\\";
-  _libDirectory="..\\..\\lib\\";
+  _binDirectory="../../bin/";
+  _fuzzBinDirectory="../../fuzz/bin/";
+  _libDirectory="../../lib/";
 }
 
 SystemPage::~SystemPage()
@@ -101,8 +101,8 @@ END_MESSAGE_MAP()
 
 wstring SystemPage::addBackslash(const CStringW &directory) const
 {
-  if (directory.GetAt(directory.GetLength()-1) != '\\')
-    return(wstring(directory) + L"\\");
+  if (directory.GetAt(directory.GetLength()-1) != '/')
+    return(wstring(directory) + L"/");
   else
     return(wstring(directory));
 }

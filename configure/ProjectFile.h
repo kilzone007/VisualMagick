@@ -39,6 +39,8 @@ public:
 
   wstring guid() const;
 
+  wstring prefix() const;
+
   wstring name() const;
 
   vector<wstring> &aliases();
@@ -93,17 +95,25 @@ private:
 
   void write(wofstream &file,const vector<Project*> &allProjects);
 
+  void writeHeader(wofstream& file);
+
+  void writeTarget(wofstream& file);
+
+  void writeIncludeDirectories(wostream& file);
+
+  void writeCompileDefinitions(wostream& file);
+
+  void writeCompileOptions(wostream& file);
+
+  void writeProperties(wostream& file);
+
   void writeIcon(wofstream &file);
 
   void writeFiles(wofstream &file,const vector<wstring> &collection);
 
-  void writeFilter(wofstream &file);
-
   void writeAdditionalDependencies(wofstream &file,const wstring &separator);
 
   void writeAdditionalIncludeDirectories(wofstream &file,const wstring &separator);
-
-  void writeItemDefinitionGroup(wofstream &file,const bool debug);
 
   void writePreprocessorDefinitions(wofstream &file,const bool debug);
 

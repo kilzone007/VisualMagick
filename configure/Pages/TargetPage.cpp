@@ -38,13 +38,13 @@ TargetPage::TargetPage() : CPropertyPage(IDD_TARGET_PAGE)
   _installedSupport=FALSE;
   _quantumDepth=QuantumDepth::Q16;
   _policyConfig=PolicyConfig::OPEN;
-  _solutionType=SolutionType::DYNAMIC_MT;
+  _solutionType=SolutionType::STATIC_MT;
   _useHDRI=PathFileExists(L"..\\MagickCore") ? TRUE : FALSE;
   _useOpenCL=TRUE;
   _useOpenMP=TRUE;
   _zeroConfigurationSupport=FALSE;
 #ifdef DEBUG
-  _includeOptional=TRUE;
+  _includeOptional=FALSE;
   _includeIncompatibleLicense=TRUE;
 #else
   _includeOptional=FALSE;

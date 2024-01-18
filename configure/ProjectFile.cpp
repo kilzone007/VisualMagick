@@ -26,8 +26,8 @@
 
 
 static const wstring
-  relativePathForConfigure(L"..\\..\\"),
-  relativePathForProject(L"..\\..\\..\\");
+  relativePathForConfigure(L"../../"),
+  relativePathForProject(L"../../../");
 
 ProjectFile::ProjectFile(const ConfigureWizard *wizard,Project *project,
   const wstring &prefix,const wstring &name)
@@ -64,6 +64,11 @@ wstring ProjectFile::fileName() const
 wstring ProjectFile::guid() const
 {
   return(_guid);
+}
+
+wstring ProjectFile::prefix() const
+{
+  return(_prefix);
 }
 
 wstring ProjectFile::name() const
@@ -215,14 +220,6 @@ void ProjectFile::write(const vector<Project*> &allprojects)
 
   write(file,allprojects);
 
-  file.close();
-
-  file.open(projectDir + L"\\" + _fileName + L".filters");
-  if (!file)
-    return;
-
-  writeFilter(file);
-
   if (_project->isExe() && _project->icon() != L"")
   {
     file.close();
@@ -262,13 +259,13 @@ void ProjectFile::addFile(const wstring &directory, const wstring &name)
 
   foreach_const(wstring,ext,validSrcFiles)
   {
-    src_file=directory + L"\\" + name + *ext;
+    src_file=directory + L"/" + name + *ext;
 
     if (PathFileExists((relativePathForConfigure + src_file).c_str()))
     {
       _srcFiles.push_back(relativePathForProject + src_file);
 
-      header_file=directory + L"\\" + name + L".h";
+      header_file=directory + L"/" + name + L".h";
       if (PathFileExists((relativePathForConfigure + header_file).c_str()))
         _includeFiles.push_back(relativePathForProject + header_file);
 
@@ -281,13 +278,13 @@ void ProjectFile::addFile(const wstring &directory, const wstring &name)
 
   foreach_const(wstring,ext,validSrcFiles)
   {
-    src_file=directory + L"\\main" + *ext;
+    src_file=directory + L"/main" + *ext;
 
     if (PathFileExists((relativePathForConfigure + src_file).c_str()))
     {
       _srcFiles.push_back(relativePathForProject + src_file);
 
-      header_file=directory + L"\\" + name + L".h";
+      header_file=directory + L"/" + name + L".h";
       if (PathFileExists((relativePathForConfigure + header_file).c_str()))
         _includeFiles.push_back(relativePathForProject + header_file);
 
@@ -306,6 +303,8 @@ void ProjectFile::addLines(wifstream &config,vector<wstring> &container)
     line=readLine(config);
     if (line.empty())
       return;
+
+    std::replace(line.begin(), line.end(), L'\\', L'/');
 
     if (!contains(container,line))
       container.push_back(line);
@@ -426,11 +425,11 @@ void ProjectFile::loadSource(const wstring &directory)
       continue;
 
     if (isSrcFile(data.cFileName))
-      _srcFiles.push_back(relativePathForProject + directory + L"\\" + data.cFileName);
+      _srcFiles.push_back(relativePathForProject + directory + L"/" + data.cFileName);
     else if (endsWith(data.cFileName,L".h"))
-      _includeFiles.push_back(relativePathForProject + directory + L"\\" + data.cFileName);
+      _includeFiles.push_back(relativePathForProject + directory + L"/" + data.cFileName);
     else if (endsWith(data.cFileName,L".rc"))
-      _resourceFiles.push_back(relativePathForProject + directory + L"\\" + data.cFileName);
+      _resourceFiles.push_back(relativePathForProject + directory + L"/" + data.cFileName);
 
   } while (FindNextFile(fileHandle,&data));
 
@@ -470,7 +469,7 @@ void ProjectFile::merge(vector<wstring> &input, vector<wstring> &output)
 
 void ProjectFile::setFileName()
 {
-  _fileName=_prefix+L"_"+_name+L"_"+_wizard->solutionName()+L".vcxproj";
+  _fileName = L"CMakeLists.txt";
 }
 
 wstring ProjectFile::createGuid()
@@ -494,67 +493,17 @@ wstring ProjectFile::createGuid()
 
 void ProjectFile::write(wofstream &file,const vector<Project*> &allProjects)
 {
-  file << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << endl;
-  file << "<Project DefaultTargets=\"Build\" ToolsVersion=\"4.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">" << endl;
-  file << "  <ItemGroup Label=\"ProjectConfigurations\">" << endl;
-  file << "    <ProjectConfiguration Include=\"Debug|" << _wizard->platformName() << "\">" << endl;
-  file << "      <Configuration>Debug</Configuration>" << endl;
-  file << "      <Platform>" << _wizard->platformName() << "</Platform>" << endl;
-  file << "    </ProjectConfiguration>" << endl;
-  file << "    <ProjectConfiguration Include=\"Release|" << _wizard->platformName() << "\">" << endl;
-  file << "      <Configuration>Release</Configuration>" << endl;
-  file << "      <Platform>" << _wizard->platformName() << "</Platform>" << endl;
-  file << "    </ProjectConfiguration>" << endl;
-  file << "  </ItemGroup>" << endl;
-  file << "  <PropertyGroup Label=\"Globals\">" << endl;
-  file << "    <ProjectName>" << _prefix << "_" << _name << "</ProjectName>" << endl;
-  file << "    <ProjectGuid>{" << _guid << "}</ProjectGuid>" << endl;
-  file << "    <Keyword>" << _wizard->platformName() << "Proj</Keyword>" << endl;
-  file << "  </PropertyGroup>" << endl;
-  file << "  <Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.Default.props\" />" << endl;
+  writeHeader(file);
 
-  file << "  <PropertyGroup Label=\"Configuration\">" << endl;
-  if (isLib())
-    file << "    <ConfigurationType>StaticLibrary</ConfigurationType>" << endl;
-  else if (_project->isDll())
-    file << "    <ConfigurationType>DynamicLibrary</ConfigurationType>" << endl;
-  else if (_project->isExe())
-    file << "    <ConfigurationType>Application</ConfigurationType>" << endl;
-  if (_wizard->visualStudioVersion() == VisualStudioVersion::VS2017)
-    file << "    <PlatformToolset>v141</PlatformToolset>" << endl;
-  else if (_wizard->visualStudioVersion() == VisualStudioVersion::VS2019)
-    file << "    <PlatformToolset>v142</PlatformToolset>" << endl;
-  else if (_wizard->visualStudioVersion() == VisualStudioVersion::VS2022)
-    file << "    <PlatformToolset>v143</PlatformToolset>" << endl;
-  file << "    <UseOfMfc>false</UseOfMfc>" << endl;
-  if (_project->useUnicode())
-    file << "    <CharacterSet>Unicode</CharacterSet>" << endl;
-  else
-    file << "    <CharacterSet>MultiByte</CharacterSet>" << endl;
-  file << "  </PropertyGroup>" << endl;
+  writeTarget(file);
 
-  file << "  <Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.props\" />" << endl;
+  writeIncludeDirectories(file);
 
-  file << "  <PropertyGroup>" << endl;
-  file << "    <LinkIncremental>false</LinkIncremental>" << endl;
-  file << "    <OutDir>" << outputDirectory() << "</OutDir>" << endl;
-  if (_project->isExe())
-  {
-    file << "    <TargetName>" << _name << "</TargetName>" << endl;
-  }
-  else
-  {
-    file << "    <TargetName Condition=\"'$(Configuration)|$(Platform)'=='Debug|" << _wizard->platformName() << "'\">" << getTargetName(true) << "</TargetName>" << endl;
-    file << "    <TargetName Condition=\"'$(Configuration)|$(Platform)'=='Release|" << _wizard->platformName() << "'\">" << getTargetName(false) << "</TargetName>" << endl;
-  }
-  file << "    <IntDir Condition=\"'$(Configuration)|$(Platform)'=='Debug|" << _wizard->platformName() << "'\">" << getIntermediateDirectoryName(true) << "</IntDir>" << endl;
-  file << "    <IntDir Condition=\"'$(Configuration)|$(Platform)'=='Release|" << _wizard->platformName() << "'\">" << getIntermediateDirectoryName(false) << "</IntDir>" << endl;
-  if (_wizard->visualStudioVersion() >= VisualStudioVersion::VS2019)
-    file << "    <UseDebugLibraries Condition=\"'$(Configuration)|$(Platform)'=='Debug|" << _wizard->platformName() << "'\">true</UseDebugLibraries>" << endl;
-  file << "  </PropertyGroup>" << endl;
+  writeCompileDefinitions(file);
 
-  writeItemDefinitionGroup(file,true);
-  writeItemDefinitionGroup(file,false);
+  writeCompileOptions(file);
+
+  writeProperties(file);
 
   writeFiles(file,_srcFiles);
   writeFiles(file,_includeFiles);
@@ -562,9 +511,148 @@ void ProjectFile::write(wofstream &file,const vector<Project*> &allProjects)
   writeIcon(file);
 
   writeProjectReferences(file,allProjects);
+}
 
-  file << "  <Import Project=\"$(VCTargetsPath)\\Microsoft.Cpp.targets\" />" << endl;
-  file << "</Project>" << endl;
+void ProjectFile::writeHeader(wofstream& file)
+{
+  file << "cmake_minimum_required(VERSION " << _wizard->cmakeMinVersion() << ")" << endl;
+  file << "project(" << name() << " LANGUAGES C CXX ASM" << ")" << endl;
+
+  file << "set(CMAKE_CXX_STANDARD 17)" << endl;
+  file << "set(CMAKE_CXX_STANDARD_REQUIRED ON)" << endl;
+
+  file << "set(CMAKE_C_STANDARD 17)" << endl;
+  file << "set(CMAKE_C_STANDARD_REQUIRED ON)" << endl;
+
+  if (_project->useUnicode())
+  {
+    file << "add_definitions(-UNICODE -D_UNICODE)" << endl;
+  }
+}
+
+void ProjectFile::writeTarget(wofstream& file)
+{
+  if (isLib())
+  {
+    file << "add_library(" << name() << " STATIC" << ")" << endl;
+  }
+  else if (_project->isDll())
+  {
+    file << "add_library(" << name() << " SHARED" << ")" << endl;
+  }
+  else if (_project->isExe())
+  {
+    file << "add_executable(" << name() << ")" << endl;
+  }
+}
+
+void ProjectFile::writeIncludeDirectories(wostream& file)
+{
+  file << "target_include_directories(" << name() << " PUBLIC ";
+  for (wstring projectDir : _project->directories())
+  {
+    bool skip = false;
+
+    for (wstring includeDir : _includes)
+    {
+      if (projectDir.find(includeDir) == 0)
+      {
+        skip = true;
+        break;
+      }
+    }
+
+    if (!skip)
+    {
+      file << "\n" << "  " << relativePathForProject << projectDir;
+    }
+  }
+
+  for (wstring includeDir : _includes)
+  {
+    file << "\n" << "  " << relativePathForProject << includeDir;
+  }
+
+  if (_wizard->useOpenCL())
+  {
+    file << "\n" << "  " << relativePathForProject << L"VisualMagick/OpenCL";
+  }
+  file << "\n)" << endl;
+}
+
+void ProjectFile::writeCompileDefinitions(wostream& file)
+{
+  file << "target_compile_definitions(" << name() << " PRIVATE ";
+  file << "\n" << "  $<$<CONFIG:Debug>:_DEBUG>";
+  file << "\n" << "  $<$<CONFIG:Release>:NDEBUG>";
+  file << "\n" << "  _WINDOWS";
+  file << "\n" << "  WIN32";
+  file << "\n" << "  _VISUALC_";
+  file << "\n" << "  NeedFunctionPrototypes";
+
+  for (wstring def : _project->defines())
+  {
+    file << "\n" << "  " << def;
+  }
+
+  if (isLib() || (_wizard->solutionType() != SolutionType::DYNAMIC_MT && (_project->isExe())))
+  {
+    for (wstring def : _definesLib)
+    {
+      file << "\n" << "  " << def;
+    }
+    file << "\n" << "  _LIB";
+  }
+  else if (_project->isDll())
+  {
+    for (wstring def : _project->definesDll())
+    {
+      file << "\n" << "  " << def;
+    }
+    file << "\n" << "  _DLL";
+    file << "\n" << "  _MAGICKMOD_";
+  }
+
+  if (_project->isExe() && _wizard->solutionType() != SolutionType::STATIC_MT)
+  {
+    file << "\n" << "  _AFXDLL";
+  }
+  if (_wizard->includeIncompatibleLicense())
+  {
+    file << "\n" << "  _MAGICK_INCOMPATIBLE_LICENSES_";
+  }
+  file << "\n)" << endl;
+}
+
+void ProjectFile::writeCompileOptions(wostream& file)
+{
+  file << "target_compile_options(" << name() << " PRIVATE /W" << _project->warningLevel();
+  if (_project->treatWarningAsError())
+  {
+    file << " /WX";
+  }
+  if (_project->compiler(_wizard->visualStudioVersion()) == Compiler::CPP)
+  {
+    file << " /TP";
+  }
+  file << " /Zi";
+  if (_wizard->useOpenMP())
+  {
+    file << " /openmp";
+  }
+  file << " /FC";
+  file << " /source-charset:utf-8";
+  file << ")" << endl;
+}
+
+void ProjectFile::writeProperties(wostream& file)
+{
+  if (_project->isFuzz())
+  {
+    file << "set_target_properties(" << name() << " PROPERTIES " << endl;
+    file << "  RUNTIME_OUTPUT_DIRECTORY " << _wizard->fuzzBinDirectory() << endl;
+    file << ")" << endl;
+  }
 }
 
 void ProjectFile::writeAdditionalDependencies(wofstream &file,const wstring &separator)
@@ -600,7 +688,7 @@ void ProjectFile::writeAdditionalIncludeDirectories(wofstream &file,const wstrin
     file << separator << relativePathForProject << *includeDir;
   }
   if (_wizard->useOpenCL())
-    file << separator << relativePathForProject << L"VisualMagick\\OpenCL";
+    file << separator << relativePathForProject << L"VisualMagick/OpenCL";
 }
 
 void ProjectFile::writeIcon(wofstream &file)
@@ -608,10 +696,9 @@ void ProjectFile::writeIcon(wofstream &file)
   if (!_project->isExe() || _project->icon() == L"")
     return;
 
-  file << "  <ItemGroup>" << endl;
-  file << "    <ResourceCompile Include=\"" << name() << ".rc\" />" << endl;
-  file << "    <Image Include=\"" << relativePathForProject << _project->icon() << "\" />" << endl;
-  file << "  </ItemGroup>" << endl;
+  file << "target_sources(" << name() << " PRIVATE" << endl;
+  file << "  " << name() << ".rc" << endl;
+  file << ")" << endl;
 }
 
 void ProjectFile::writeFiles(wofstream &file,const vector<wstring> &collection)
@@ -630,194 +717,23 @@ void ProjectFile::writeFiles(wofstream &file,const vector<wstring> &collection)
   if (collection.size() == 0)
     return;
 
-  file << "  <ItemGroup>" << endl;
-  foreach_const (wstring,f,collection)
+  file << "target_sources(" << this->name() << " PRIVATE" << endl;
+  for (const wstring& f : collection)
   {
-    if (endsWith((*f),L".rc"))
-      file << "    <ResourceCompile Include=\"" << *f << "\" />" << endl;
-    else if (endsWith((*f),L".h"))
-      file << "    <ClInclude Include=\"" << *f << "\" />" << endl;
-    else if (endsWith((*f),L".asm"))
+    file << "  " << f << endl;
+  }
+  file << ")" << endl;
+
+  for (const wstring& f : collection)
+  {
+    if (!endsWith(f, L".asm") && !endsWith(f, L".rc") && !endsWith(f, L".h"))
     {
-      if (!_project->useNasm())
+      if (_project->compiler(_wizard->visualStudioVersion()) == Compiler::CPP)
       {
-        file << "    <CustomBuild Include=\"" << *f << "\">" << endl;
-        file << "      <Command>" << asmOptions() << "</Command>" << endl;
-        file << "      <Outputs>$(IntDir)%(Filename).obj;%(Outputs)</Outputs>" << endl;
-        file << "    </CustomBuild>" << endl;
-      }
-      else
-      {
-        folder=(*f).substr(0,(*f).find_last_of(L"\\"));
-        file << "    <CustomBuild Include=\"" << *f << "\">" << endl;
-        file << "      <Command>" << nasmOptions(folder) << "</Command>" << endl;
-        file << "      <Outputs>$(IntDir)%(Filename).obj;%(Outputs)</Outputs>" << endl;
-        file << "    </CustomBuild>" << endl;
+        file << "set_source_files_properties(" << f << " PROPERTIES LANGUAGE CXX)" << endl;
       }
     }
-    else
-    {
-      fileName=(*f).substr((*f).find_last_of(L"\\") + 1);
-
-      count=1;
-      if (fileCount.find(fileName) == fileCount.end())
-        fileCount.insert(make_pair(fileName,count));
-      else
-        count=++fileCount[fileName];
-
-      file << "    <ClCompile Include=\"" << *f << "\">" << endl;
-      name=replace(*f,L"..\\",L"");
-      if (contains(_cppFiles,name))
-        file << "      <CompileAs>CompileAsCpp</CompileAs>" << endl;
-      else if (count > 1)
-      {
-        name=(*f).substr(0,(*f).find_last_of(L"."));
-        name=name.substr(name.find_last_of(L"\\") + 1);
-        file << "      <ObjectFileName>$(IntDir)" << name << "_" << count << ".obj</ObjectFileName>" << endl;
-      }
-      file << "      <MultiProcessorCompilation>true</MultiProcessorCompilation>" << endl;
-      file << "    </ClCompile>" << endl;
-    }
   }
-  file << "  </ItemGroup>" << endl;
-}
-
-void ProjectFile::writeFilter(wofstream &file)
-{
-  wstring
-    filter;
-
-  vector<wstring>
-    filters;
-
-  file << "<?xml version=\"1.0\" encoding=\"utf-8\"?>" << endl;
-  file << "<Project ToolsVersion=\"4.0\" xmlns=\"http://schemas.microsoft.com/developer/msbuild/2003\">" << endl;
-  file << "  <ItemGroup>" << endl;
-  foreach_const (wstring,f,_srcFiles)
-  {
-    wstring
-      tagName(L"ClCompile");
-
-    if (endsWith((*f),L".asm"))
-      tagName=L"CustomBuild";
-
-    filter=getFilter(*f,filters);
-    if (filter != L"")
-    {
-      file << "    <" << tagName << L" Include=\"" << *f << "\">" << endl;
-      file << "      <Filter>" << filter << "</Filter>" << endl;
-      file << "    </" << tagName << L">" << endl;
-    }
-    else
-      file << "    <" << tagName << L" Include=\"" << *f << "\" />" << endl;
-  }
-  file << "  </ItemGroup>" << endl;
-  file << "  <ItemGroup>" << endl;
-  foreach_const (wstring,f,_includeFiles)
-  {
-    filter=getFilter(*f,filters);
-    if (filter != L"")
-    {
-      file << "    <CLInclude Include=\"" << *f << "\">" << endl;
-      file << "      <Filter>" << filter << "</Filter>" << endl;
-      file << "    </CLInclude>" << endl;
-    }
-    else
-      file << "    <CLInclude Include=\"" << *f << "\" />" << endl;
-  }
-  file << "  </ItemGroup>" << endl;
-  file << "  <ItemGroup>" << endl;
-  foreach_const (wstring,f,filters)
-  {
-    file << "    <Filter Include=\"" << *f << "\">" << endl;
-    file << "      <UniqueIdentifier>{" << createGuid() << "}</UniqueIdentifier>" << endl;
-    file << "    </Filter>" << endl;
-  }
-  file << "  </ItemGroup>" << endl;
-  file << "</Project>" << endl;
-}
-
-void ProjectFile::writeItemDefinitionGroup(wofstream &file,const bool debug)
-{
-  wstring
-    name;
-
-  name=getTargetName(debug);
-
-  file << "  <ItemDefinitionGroup Condition=\"'$(Configuration)|$(Platform)'=='" << (debug ? "Debug" : "Release") << "|" << _wizard->platformName() << "'\">" << endl;
-  file << "    <ClCompile>" << endl;
-  file << "      <RuntimeLibrary>MultiThreaded" << (debug ? "Debug" : "") << (_wizard->solutionType() == SolutionType::STATIC_MT ? "" : "DLL") << "</RuntimeLibrary>" << endl;
-  file << "      <StringPooling>true</StringPooling>" << endl;
-  file << "      <FunctionLevelLinking>true</FunctionLevelLinking>" << endl;
-  if (_project->warningLevel() == 0)
-    file << "      <WarningLevel>TurnOffAllWarnings</WarningLevel>" << endl;
-  else
-    file << "      <WarningLevel>Level" << _project->warningLevel() << "</WarningLevel>" << endl;
-  if (_project->treatWarningAsError())
-    file << "      <TreatWarningAsError>true</TreatWarningAsError>" << endl;
-  file << "      <SuppressStartupBanner>true</SuppressStartupBanner>" << endl;
-  if (_project->compiler(_wizard->visualStudioVersion()) == Compiler::CPP)
-    file << "      <CompileAs>CompileAsCpp</CompileAs>" << endl;
-  file << "      <InlineFunctionExpansion>" << (debug ? "Disabled" : "AnySuitable") << "</InlineFunctionExpansion>" << endl;
-  file << "      <OpenMPSupport>" << (_wizard->useOpenMP() ? "true" : "false") << "</OpenMPSupport>" << endl;
-  file << "      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>" << endl;
-  file << "      <ProgramDatabaseFileName>" << _wizard->binDirectory() << (_project->isExe() ? _name : name) << ".pdb</ProgramDatabaseFileName>" << endl;
-  file << "      <BasicRuntimeChecks>" << (debug ? "EnableFastChecks" : "Default") << "</BasicRuntimeChecks>" << endl;
-  file << "      <OmitFramePointers>" << (debug ? "false" : "true") << "</OmitFramePointers>" << endl;
-  file << "      <Optimization>" << (debug || _project->isOptimizationDisable() ? "Disabled" : "MaxSpeed") << "</Optimization>" << endl;
-  file << "      <AdditionalIncludeDirectories>";
-  writeAdditionalIncludeDirectories(file,L";");
-  file << ";%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>" << endl;
-  file << "      <PreprocessorDefinitions>";
-  writePreprocessorDefinitions(file,debug);
-  file << ";%(PreprocessorDefinitions)</PreprocessorDefinitions>" << endl;
-  file << "      <AdditionalOptions>/source-charset:utf-8 %(AdditionalOptions)</AdditionalOptions>" << endl;
-  file << "      <MultiProcessorCompilation>true</MultiProcessorCompilation>" << endl;
-  file << "      <LanguageStandard>stdcpp17</LanguageStandard>" << endl;
-  file << "      <LanguageStandard_C>stdc17</LanguageStandard_C>" << endl;
-  file << "    </ClCompile>" << endl;
-  file << "    <ResourceCompile>" << endl;
-  file << "      <PreprocessorDefinitions>" << (debug ? "_DEBUG" : "NDEBUG") <<";%(PreprocessorDefinitions)</PreprocessorDefinitions>" << endl;
-  file << "      <Culture>0x0409</Culture>" << endl;
-  file << "    </ResourceCompile>" << endl;
-
-  if (isLib())
-  {
-    file << "    <Lib>" << endl;
-    file << "      <AdditionalLibraryDirectories>" << _wizard->libDirectory() << ";%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>" << endl;
-    file << "      <AdditionalDependencies>/MACHINE:" << (_wizard->machineName());
-    writeAdditionalDependencies(file,L";");
-    file << ";%(AdditionalDependencies)</AdditionalDependencies>" << endl;
-    file << "      <SuppressStartupBanner>true</SuppressStartupBanner>" << endl;
-    file << "    </Lib>" << endl;
-  }
-  else
-  {
-    file << "    <Link>" << endl;
-    file << "      <AdditionalLibraryDirectories>" << _wizard->libDirectory() << ";%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>" << endl;
-    file << "      <AdditionalDependencies>/MACHINE:" << _wizard->machineName();
-    writeAdditionalDependencies(file,L";");
-    file << ";%(AdditionalDependencies)</AdditionalDependencies>" << endl;
-    file << "      <SuppressStartupBanner>true</SuppressStartupBanner>" << endl;
-    file << "      <TargetMachine>Machine" << _wizard->machineName() << "</TargetMachine>" << endl;
-    file << "      <GenerateDebugInformation>" << (debug ? "true" : "false") << "</GenerateDebugInformation>" << endl;
-    file << "      <ProgramDatabaseFile>" << _wizard->binDirectory() << (_project->isExe() ? _name : name) << ".pdb</ProgramDatabaseFile>" << endl;
-    file << "      <ImportLibrary>" << _wizard->libDirectory() << name << ".lib</ImportLibrary>" << endl;
-    if (!_project->isConsole())
-    {
-      if (_project->isDll())
-        file << "      <LinkDLL>true</LinkDLL>" << endl;
-      else if (_project->useUnicode())
-        file << "    <EntryPointSymbol>wWinMainCRTStartup</EntryPointSymbol>" << endl;
-      file << "      <SubSystem>Windows</SubSystem>" << endl;
-      if ((_project->isDll()) && (!_project->moduleDefinitionFile().empty()))
-        file << "      <ModuleDefinitionFile>" << relativePathForProject <<  _project->moduleDefinitionFile() << "</ModuleDefinitionFile>" << endl;
-    }
-    else
-      file << "      <SubSystem>Console</SubSystem>" << endl;
-    file << "    </Link>" << endl;
-  }
-  file << "  </ItemDefinitionGroup>" << endl;
 }
 
 void ProjectFile::writePreprocessorDefinitions(wofstream &file,const bool debug)
@@ -858,36 +774,42 @@ void ProjectFile::writeProjectReferences(wofstream &file,const vector<Project*> 
     projectName,
     projectFileName;
 
-  file << "  <ItemGroup>" << endl;
+  bool hasDep = false;
 
-  foreach (wstring,dep,_dependencies)
+  for (const wstring& dep : _dependencies)
   {
-    projectName=*dep;
-    projectFileName=L"";
-    index=(*dep).find(L">");
+    projectName = dep;
+    projectFileName = L"";
+    index = dep.find(L">");
     if (index != -1)
     {
-      projectName=(*dep).substr(0,index);
-      projectFileName=(*dep).substr(index+1);
+      projectName = dep.substr(0, index);
+      projectFileName = dep.substr(index + 1);
     }
 
-    foreach_const (Project*,depp,allProjects)
+    for (const auto& depp : allProjects)
     {
-      if ((*depp)->name() != projectName)
+      if (depp->name() != projectName)
         continue;
 
-      foreach (ProjectFile*,deppf,(*depp)->files())
+      for (const auto& deppf : depp->files())
       {
-        if (projectFileName != L"" && (*deppf)->_name != projectFileName)
+        if (projectFileName != L"" && deppf->_name != projectFileName)
           continue;
 
-        file << "    <ProjectReference Include=\"..\\" << (*deppf)->name() << "\\" << (*deppf)->_fileName << "\">" << endl;
-        file << "      <Project>{" << (*deppf)->guid() << "}</Project>" << endl;
-        file << "      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>" << endl;
-        file << "    </ProjectReference>" << endl;
+        if (!hasDep)
+        {
+          hasDep = true;
+          file << "target_link_libraries(" << name() << " PUBLIC " << endl;
+        }
+
+        file << "  " << deppf->name() << endl;
       }
     }
   }
 
-  file << "  </ItemGroup>" << endl;
+  if (hasDep)
+  {
+    file << ")" << endl;
+  }
 }

@@ -85,6 +85,8 @@ public:
 
   void parseCommandLineInfo(const CommandLineInfo &info);
 
+  wstring cmakeMinVersion() const;
+
 protected:
 
   DECLARE_MESSAGE_MAP()

@@ -114,8 +114,11 @@ void Solution::write(const ConfigureWizard &wizard,WaitDialog &waitDialog)
   {
     foreach (ProjectFile*,pf,(*p)->files())
     {
-      waitDialog.nextStep(L"Writing: " + (*pf)->fileName());
-      (*pf)->write(_projects);
+      if ((*pf)->prefix().compare(L"CORE") == 0)
+      {
+        waitDialog.nextStep(L"Writing: " + (*pf)->fileName());
+        (*pf)->write(_projects);
+      }
     }
   }
 
@@ -125,8 +128,8 @@ void Solution::write(const ConfigureWizard &wizard,WaitDialog &waitDialog)
   waitDialog.nextStep(L"Writing threshold-map.h");
   writeThresholdMap(wizard);
 
-  waitDialog.nextStep(L"Writing Makefile.PL");
-  writeMakeFile(wizard);
+  //waitDialog.nextStep(L"Writing Makefile.PL");
+  //writeMakeFile(wizard);
 
   waitDialog.nextStep(L"Writing policy config");
   writePolicyConfig(wizard);
@@ -137,8 +140,8 @@ void Solution::write(const ConfigureWizard &wizard,WaitDialog &waitDialog)
   waitDialog.nextStep(L"Writing version");
   writeVersion(wizard,versionInfo);
 
-  waitDialog.nextStep(L"Writing NOTICE.txt");
-  writeNotice(wizard,versionInfo);
+  //waitDialog.nextStep(L"Writing NOTICE.txt");
+  //writeNotice(wizard,versionInfo);
 }
 
 wstring Solution::getFileName(const ConfigureWizard &wizard)
@@ -146,9 +149,9 @@ wstring Solution::getFileName(const ConfigureWizard &wizard)
   wstring
     fileName;
 
-  fileName=L"..\\Visual" + wizard.solutionName();
+  fileName = L"..\\CMakeLists.txt";
 
-  return(fileName+L".sln");
+  return(fileName);
 }
 
 wstring Solution::getFolder()
@@ -236,7 +239,15 @@ void Solution::writeMagickBaseConfig(const ConfigureWizard &wizard)
         config << "/*" << endl;
         config << "  Channel mask depth" << endl;
         config << "*/" << endl;
-        config << "#define MAGICKCORE_CHANNEL_MASK_DEPTH " << wizard.channelMaskDepth() << endl;
+        config << "#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)" << endl;
+        config << "#ifdef _WIN64" << endl;
+        config << "#define MAGICKCORE_CHANNEL_MASK_DEPTH 64" << endl;
+        config << "#else" << endl;
+        config << "#define MAGICKCORE_CHANNEL_MASK_DEPTH 32" << endl;
+        config << "#endif" << endl;
+        config << "#else" << endl;
+        config << "#define MAGICKCORE_CHANNEL_MASK_DEPTH 32" << endl;
+        config << "#endif" << endl;
         config << endl;
       }
 
@@ -551,42 +562,42 @@ void Solution::checkKeyword(const wstring keyword)
 
 void Solution::write(const ConfigureWizard &wizard,wofstream &file)
 {
-  file << "Microsoft Visual Studio Solution File, Format Version 12.00" << endl;
-  if (wizard.visualStudioVersion() == VisualStudioVersion::VS2017)
-    file << "# Visual Studio 2017" << endl;
-  else if (wizard.visualStudioVersion() == VisualStudioVersion::VS2019)
-    file << "# Visual Studio 2019" << endl;
-  else if (wizard.visualStudioVersion() == VisualStudioVersion::VS2022)
-    file << "# Visual Studio 2022" << endl;
+  file << "cmake_minimum_required(VERSION " << wizard.cmakeMinVersion() << ")" << endl;
+  file << "project(Visual" << wizard.solutionName() << " LANGUAGES C CXX ASM" << ")" << endl;
 
-  foreach (Project*,p,_projects)
+  file << "set(CMAKE_CXX_STANDARD 17)" << endl;
+  file << "set(CMAKE_CXX_STANDARD_REQUIRED ON)" << endl;
+
+  file << "set(CMAKE_C_STANDARD 17)" << endl;
+  file << "set(CMAKE_C_STANDARD_REQUIRED ON)" << endl;
+
+  file << "set(CMAKE_LIBRARY_OUTPUT_DIRECTORY \"" << wizard.libDirectory() << "\")" << endl;
+  file << "set(CMAKE_RUNTIME_OUTPUT_DIRECTORY \"" << wizard.binDirectory() << "\")" << endl;
+  file << "set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY \"" << wizard.libDirectory() << "\")" << endl;
+
+  file << "link_directories(\"" << wizard.libDirectory() << "\")" << endl;
+
+  switch (wizard.solutionType())
   {
-    foreach (ProjectFile*,pf,(*p)->files())
+  case SolutionType::STATIC_MTD:
+  case SolutionType::DYNAMIC_MT:
+    file << "set(CMAKE_MSVC_RUNTIME_LIBRARY \"MultiThreaded$<$<CONFIG:Debug>:Debug>DLL\")" << endl;
+    break;
+  case SolutionType::STATIC_MT:
+    file << "set(CMAKE_MSVC_RUNTIME_LIBRARY \"MultiThreaded$<$<CONFIG:Debug>:Debug>\")" << endl;
+    break;
+  default:
+    break;
+  }
+
+  for (const auto& p : _projects)
+  {
+    for (const auto& pf : p->files())
     {
-      file << "Project(\"{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}\") = \"" << (*pf)->name() << "\", ";
-      file << "\"VisualStudioProjects\\" << (*pf)->name() << "\\" << (*pf)->fileName() << "\", \"{" << (*pf)->guid() << "}\"" << endl;
-      file << "EndProject" << endl;
+      if (pf->prefix().compare(L"CORE") == 0)
+      {
+        file << "add_subdirectory(VisualStudioProjects/" << pf->name() << ")" << endl;
+      }
     }
   }
-  file << "EndProject" << endl;
-
-  file << "Global" << endl;
-  file << "\tGlobalSection(SolutionConfigurationPlatforms) = preSolution" << endl;
-  file << "\t\tDebug|" << wizard.platformAlias() << " = Debug|" << wizard.platformAlias() << endl;
-  file << "\t\tRelease|" << wizard.platformAlias() << " = Release|" << wizard.platformAlias() << endl;
-  file << "\tEndGlobalSection" << endl;
-
-  file << "\tGlobalSection(ProjectConfigurationPlatforms) = postSolution" << endl;
-  foreach (Project*,p,_projects)
-  {
-    foreach (ProjectFile*,pf,(*p)->files())
-    {
-      file << "\t\t{" << (*pf)->guid() << "}.Debug|" << wizard.platformAlias() << ".ActiveCfg = Debug|" << wizard.platformName() << endl;
-      file << "\t\t{" << (*pf)->guid() << "}.Debug|" << wizard.platformAlias() << ".Build.0 = Debug|" << wizard.platformName() << endl;
-      file << "\t\t{" << (*pf)->guid() << "}.Release|" << wizard.platformAlias() << ".ActiveCfg = Release|" << wizard.platformName() << endl;
-      file << "\t\t{" << (*pf)->guid() << "}.Release|" << wizard.platformAlias() << ".Build.0 = Release|" << wizard.platformName() << endl;
-    }
-  }
-  file << "\tEndGlobalSection" << endl;
-  file << "EndGlobal" << endl;
 }
